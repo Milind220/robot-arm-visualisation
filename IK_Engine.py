@@ -5,32 +5,35 @@ import numpy as np
 DEBUG = False
 
 
-class Leg:
+class Arm:
     def __init__(self, origin):
-        self.init_origin = origin
         self.origin = origin
-        self.hip_rad = None
-        self.shoulder_rad = None
-        self.wrist_rad = None
-        # local
-        self.x = None
-        self.y = None
-        self.z = None
-        # global
-        self.g_x = None
-        self.g_y = None
-        self.g_z = None
+        self.servo1_rad: float = math.pi / 2  # servo1 (yaw) angle in radians
+        self.servo2_rad: float = math.pi / 2  # servo2 (pitch) angle in radians:
+        self.arm_length: float = 65  # Total length of the arm
+        self.arm_offset: float = 12  # Offset from the center of the robot
+        self.actuator_extension: float = 0  # Actuator extension length
+        # coordinates of arm end effector
+        self.x: float = self.arm_offset
+        self.y: float = 0
+        self.z: float = self.arm_length
 
     def __str__(self):
-        return f'origin: {self.origin}, angles: [hip: {math.degrees(self.hip_rad)}, shoulder: {math.degrees(self.shoulder_rad)}, wrist: {math.degrees(self.wrist_rad)}], endpoint: {(self.x, self.y, self.z)}'
+        return f"""
+        origin: {self.origin}, 
+        yaw angle: {math.degrees(self.servo1_rad)}, 
+        pitch angle: {math.degrees(self.servo2_rad)}, 
+        arm_length: {self.arm_length}, 
+        actuator_ext: {self.actuator_extension}, 
+        endpoint: {(self.x, self.y, self.z)}
+        """
 
 
-class InverseKinematics:
-
+class ArmIK:
     def __init__(self, forearm, shoulder, body_dim, hip_offset):
-        '''
+        """
         body_dim: (length, width,thickness) in mm
-        '''
+        """
         self.wrist = forearm
         self.shoulder = shoulder
         self.body_dim = body_dim
@@ -38,31 +41,36 @@ class InverseKinematics:
         self.joint_angles = []
 
     def local_translation_engine(self, legs_xyz):
-        '''
+        """
         Translation engine for
-        '''
+        """
         try:
             joint_angles = []
             for i, (x, y, z) in enumerate(legs_xyz):
-                h1 = math.sqrt(self.hip_offset[0]**2 + self.hip_offset[1]**2)
+                h1 = math.sqrt(self.hip_offset[0] ** 2 + self.hip_offset[1] ** 2)
                 h2 = math.sqrt(z**2 + y**2)
                 alpha_0 = math.atan(y / z)
                 alpha_1 = math.atan(self.hip_offset[1] / self.hip_offset[0])
                 alpha_2 = math.atan(self.hip_offset[0] / self.hip_offset[1])
-                alpha_3 = math.asin(
-                    h1 * math.sin(alpha_2 + math.radians(90)) / h2)
-                alpha_4 = math.radians(
-                    180) - (alpha_3 + alpha_2 + math.radians(90))
+                alpha_3 = math.asin(h1 * math.sin(alpha_2 + math.radians(90)) / h2)
+                alpha_4 = math.radians(180) - (alpha_3 + alpha_2 + math.radians(90))
                 alpha_5 = alpha_1 - alpha_4
                 theta_h = alpha_0 - alpha_5
 
                 r0 = h1 * math.sin(alpha_4) / math.sin(alpha_3)
                 h = math.sqrt(r0**2 + x**2)
                 phi = math.asin(x / h)
-                theta_s = math.acos(
-                    (h**2 + self.shoulder**2 - self.wrist**2) / (2 * h * self.shoulder)) - phi
-                theta_w = math.acos((self.wrist**2 + self.shoulder **
-                                     2 - h**2) / (2 * self.wrist * self.shoulder))
+                theta_s = (
+                    math.acos(
+                        (h**2 + self.shoulder**2 - self.wrist**2)
+                        / (2 * h * self.shoulder)
+                    )
+                    - phi
+                )
+                theta_w = math.acos(
+                    (self.wrist**2 + self.shoulder**2 - h**2)
+                    / (2 * self.wrist * self.shoulder)
+                )
 
                 if i < 2:
                     joint_angles.append((theta_h, theta_s, theta_w))
@@ -74,14 +82,26 @@ class InverseKinematics:
         return self.joint_angles
 
 
-class Quadruped:
+class ArmController:
+    def __init__(self) -> None:
+        pass
 
-    def __init__(self, ax=0, origin=(0, 0, 100), body_dim=(230, 78), limb_lengths=(107, 130), offsets=(10, 60), height=170):
-        '''
+
+class Quadruped:
+    def __init__(
+        self,
+        ax=0,
+        origin=(0, 0, 100),
+        body_dim=(230, 78),
+        limb_lengths=(107, 130),
+        offsets=(10, 60),
+        height=170,
+    ):
+        """
         body_dim: (length, width,thickness) in mm
         limb_lengths: (upper_arm, bottom_arm) in mm
         offsets: (z_offset, y_offset) in mm
-        '''
+        """
         self.ax = ax
         self.body_dim = body_dim
         self.limb_lengths = limb_lengths
@@ -94,41 +114,59 @@ class Quadruped:
         self.height = height
 
         self.ik = InverseKinematics(
-            limb_lengths[1], limb_lengths[0], self.body_dim, self.offsets)
+            limb_lengths[1], limb_lengths[0], self.body_dim, self.offsets
+        )
 
-        self.body = [(origin[0] - self.body_dim[0] / 2,
-                      origin[1] - self.body_dim[1] / 2, origin[2]),
-                     (origin[0] + self.body_dim[0] / 2,
-                      origin[1] - self.body_dim[1] / 2, origin[2]),
-                     (origin[0] + self.body_dim[0] / 2,
-                      origin[1] + self.body_dim[1] / 2, origin[2]),
-                     (origin[0] - self.body_dim[0] / 2,
-                      origin[1] + self.body_dim[1] / 2, origin[2]),
-                     (origin[0] - self.body_dim[0] / 2,
-                      origin[1] - self.body_dim[1] / 2, origin[2])]
+        self.body = [
+            (
+                origin[0] - self.body_dim[0] / 2,
+                origin[1] - self.body_dim[1] / 2,
+                origin[2],
+            ),
+            (
+                origin[0] + self.body_dim[0] / 2,
+                origin[1] - self.body_dim[1] / 2,
+                origin[2],
+            ),
+            (
+                origin[0] + self.body_dim[0] / 2,
+                origin[1] + self.body_dim[1] / 2,
+                origin[2],
+            ),
+            (
+                origin[0] - self.body_dim[0] / 2,
+                origin[1] + self.body_dim[1] / 2,
+                origin[2],
+            ),
+            (
+                origin[0] - self.body_dim[0] / 2,
+                origin[1] - self.body_dim[1] / 2,
+                origin[2],
+            ),
+        ]
 
         # back_right_leg, front_right_leg, front_left_leg, back_left_leg
-        self.legs = [Leg((-self.body_dim[0] / 2, -self.body_dim[1] / 2, origin[2])),
-                     Leg((self.body_dim[0] / 2, -
-                          self.body_dim[1] / 2, origin[2])),
-                     Leg((self.body_dim[0] / 2,
-                          self.body_dim[1] / 2, origin[2])),
-                     Leg((-self.body_dim[0] / 2, self.body_dim[1] / 2, origin[2]))]
+        self.legs = [
+            Leg((-self.body_dim[0] / 2, -self.body_dim[1] / 2, origin[2])),
+            Leg((self.body_dim[0] / 2, -self.body_dim[1] / 2, origin[2])),
+            Leg((self.body_dim[0] / 2, self.body_dim[1] / 2, origin[2])),
+            Leg((-self.body_dim[0] / 2, self.body_dim[1] / 2, origin[2])),
+        ]
 
     @staticmethod
     def add_vector(base_vector, increment):
-        '''
+        """
         Adds the given vectors element-wise in the order: base_vector + increment
-        '''
-        assert(len(base_vector) == len(increment))
+        """
+        assert len(base_vector) == len(increment)
         return [val + increment[i] for i, val in enumerate(base_vector)]
 
     @staticmethod
     def subtract_vector(base_vector, increment):
-        '''
+        """
         Subtracts the given vectors element-wise in the order: base_vector - increment
-        '''
-        assert(len(base_vector) == len(increment))
+        """
+        assert len(base_vector) == len(increment)
         return [val - increment[i] for i, val in enumerate(base_vector)]
 
     @staticmethod
@@ -139,27 +177,29 @@ class Quadruped:
         """
         global DEBUG
         if DEBUG:
-            print(
-                f'vector: {vector}, axis: {axis}, theta: {math.degrees(theta)}')
+            print(f"vector: {vector}, axis: {axis}, theta: {math.degrees(theta)}")
         axis = np.asarray(axis)
         axis = axis / math.sqrt(np.dot(axis, axis))
         a = math.cos(theta / 2.0)
         b, c, d = -axis * math.sin(theta / 2.0)
         aa, bb, cc, dd = a * a, b * b, c * c, d * d
         bc, ad, ac, ab, bd, cd = b * c, a * d, a * c, a * b, b * d, c * d
-        rotation_matrix = np.array([[aa + bb - cc - dd, 2 * (bc + ad), 2 * (bd - ac)],
-                                    [2 * (bc - ad), aa + cc -
-                                     bb - dd, 2 * (cd + ab)],
-                                    [2 * (bd + ac), 2 * (cd - ab), aa + dd - bb - cc]])
+        rotation_matrix = np.array(
+            [
+                [aa + bb - cc - dd, 2 * (bc + ad), 2 * (bd - ac)],
+                [2 * (bc - ad), aa + cc - bb - dd, 2 * (cd + ab)],
+                [2 * (bd + ac), 2 * (cd - ab), aa + dd - bb - cc],
+            ]
+        )
         return np.dot(rotation_matrix, vector)
 
-    def draw_body(self, color='black'):
+    def draw_body(self, color="black"):
         x_data = [vector[0] for vector in self.body]
         y_data = [vector[1] for vector in self.body]
         z_data = [vector[2] for vector in self.body]
         self.ax.plot(x_data, y_data, z_data, color=color)
 
-    def draw_legs(self, color='blue'):
+    def draw_legs(self, color="blue"):
         for i, leg in enumerate(self.legs):
             leg_vectors = []
 
@@ -179,54 +219,97 @@ class Quadruped:
             # respective corner of robot
             leg_vectors.append(leg.origin)
             # z offset on hip
-            leg_vectors.append(Quadruped.add_vector(leg_vectors[0],
-                                                    (0, 0, -self.offsets[0])))
+            leg_vectors.append(
+                Quadruped.add_vector(leg_vectors[0], (0, 0, -self.offsets[0]))
+            )
             # y offset on hip
-            leg_vectors.append(Quadruped.add_vector(leg_vectors[-1],
-                                                    (0, horiz_offset, 0)))
+            leg_vectors.append(
+                Quadruped.add_vector(leg_vectors[-1], (0, horiz_offset, 0))
+            )
             shoulder_axis = (0, 1, 0)
 
             # upper arm
-            leg_vectors.append(Quadruped.add_vector(leg_vectors[-1],
-                                                    (0, 0, -self.limb_lengths[0])))
+            leg_vectors.append(
+                Quadruped.add_vector(leg_vectors[-1], (0, 0, -self.limb_lengths[0]))
+            )
             wrist_axis = (0, 1, 0)
 
             # lower arm
-            leg_vectors.append(Quadruped.add_vector(leg_vectors[-1],
-                                                    (0, 0, -self.limb_lengths[1])))
+            leg_vectors.append(
+                Quadruped.add_vector(leg_vectors[-1], (0, 0, -self.limb_lengths[1]))
+            )
 
             # apply rotations
             # wrist rotation 1
-            leg_vectors[-1] = Quadruped.add_vector(leg_vectors[-2], Quadruped.rotate_vector(
-                Quadruped.subtract_vector(leg_vectors[-1], leg_vectors[-2]), wrist_axis, wrist_rad))
+            leg_vectors[-1] = Quadruped.add_vector(
+                leg_vectors[-2],
+                Quadruped.rotate_vector(
+                    Quadruped.subtract_vector(leg_vectors[-1], leg_vectors[-2]),
+                    wrist_axis,
+                    wrist_rad,
+                ),
+            )
             # wrist rotation 2
-            leg_vectors[-1] = Quadruped.add_vector(leg_vectors[-3], Quadruped.rotate_vector(
-                Quadruped.subtract_vector(leg_vectors[-1], leg_vectors[-3]), shoulder_axis, shoulder_rad))
+            leg_vectors[-1] = Quadruped.add_vector(
+                leg_vectors[-3],
+                Quadruped.rotate_vector(
+                    Quadruped.subtract_vector(leg_vectors[-1], leg_vectors[-3]),
+                    shoulder_axis,
+                    shoulder_rad,
+                ),
+            )
             # wrist rotation 3
-            leg_vectors[-1] = Quadruped.add_vector(leg_vectors[0], Quadruped.rotate_vector(
-                Quadruped.subtract_vector(leg_vectors[-1], leg_vectors[0]), hip_axis, hip_rad))
+            leg_vectors[-1] = Quadruped.add_vector(
+                leg_vectors[0],
+                Quadruped.rotate_vector(
+                    Quadruped.subtract_vector(leg_vectors[-1], leg_vectors[0]),
+                    hip_axis,
+                    hip_rad,
+                ),
+            )
             # shoulder rotation 1
-            leg_vectors[-2] = Quadruped.add_vector(leg_vectors[-3], Quadruped.rotate_vector(
-                Quadruped.subtract_vector(leg_vectors[-2], leg_vectors[-3]), shoulder_axis, shoulder_rad))
+            leg_vectors[-2] = Quadruped.add_vector(
+                leg_vectors[-3],
+                Quadruped.rotate_vector(
+                    Quadruped.subtract_vector(leg_vectors[-2], leg_vectors[-3]),
+                    shoulder_axis,
+                    shoulder_rad,
+                ),
+            )
             # shoulder rotation 2
-            leg_vectors[-2] = Quadruped.add_vector(leg_vectors[0], Quadruped.rotate_vector(
-                Quadruped.subtract_vector(leg_vectors[-2], leg_vectors[0]), hip_axis, hip_rad))
+            leg_vectors[-2] = Quadruped.add_vector(
+                leg_vectors[0],
+                Quadruped.rotate_vector(
+                    Quadruped.subtract_vector(leg_vectors[-2], leg_vectors[0]),
+                    hip_axis,
+                    hip_rad,
+                ),
+            )
             # hip rotation 1
-            leg_vectors[-3] = Quadruped.add_vector(leg_vectors[0], Quadruped.rotate_vector(
-                Quadruped.subtract_vector(leg_vectors[-3], leg_vectors[0]), hip_axis, hip_rad))
+            leg_vectors[-3] = Quadruped.add_vector(
+                leg_vectors[0],
+                Quadruped.rotate_vector(
+                    Quadruped.subtract_vector(leg_vectors[-3], leg_vectors[0]),
+                    hip_axis,
+                    hip_rad,
+                ),
+            )
             # hip rotation 1
-            leg_vectors[-4] = Quadruped.add_vector(leg_vectors[0], Quadruped.rotate_vector(
-                Quadruped.subtract_vector(leg_vectors[-4], leg_vectors[0]), hip_axis, hip_rad))
+            leg_vectors[-4] = Quadruped.add_vector(
+                leg_vectors[0],
+                Quadruped.rotate_vector(
+                    Quadruped.subtract_vector(leg_vectors[-4], leg_vectors[0]),
+                    hip_axis,
+                    hip_rad,
+                ),
+            )
 
             for i, vector in enumerate(leg_vectors):
-                leg_vectors[i] = Quadruped.rotate_vector(
-                    vector, [0, 0, 1], -self.yaw)
+                leg_vectors[i] = Quadruped.rotate_vector(vector, [0, 0, 1], -self.yaw)
             for i, vector in enumerate(leg_vectors):
-                leg_vectors[i] = Quadruped.rotate_vector(
-                    vector, [0, 1, 0], -self.pitch)
+                leg_vectors[i] = Quadruped.rotate_vector(vector, [0, 1, 0], -self.pitch)
             for i, vector in enumerate(leg_vectors):
-                leg_vectors[i] = Quadruped.rotate_vector(
-                    vector, [1, 0, 0], -self.roll)
+                leg_vectors[i] = Quadruped.rotate_vector(vector, [1, 0, 0], -self.roll)
 
             x_data = [vector[0] for vector in leg_vectors]
             y_data = [vector[1] for vector in leg_vectors]
@@ -251,10 +334,12 @@ class Quadruped:
         for leg in self.legs:
             leg.origin = leg.init_origin
         self.origin = self.init_origin
-        starting_points = [(50, 80, self.height),
-                           (-50, 80, self.height),
-                           (-50, 80, self.height),
-                           (50, 80, self.height)]
+        starting_points = [
+            (50, 80, self.height),
+            (-50, 80, self.height),
+            (-50, 80, self.height),
+            (50, 80, self.height),
+        ]
         self.fully_define(starting_points)
         if DEBUG:
             for leg in self.legs:
@@ -279,21 +364,41 @@ class Quadruped:
                 leg.y += -local_y_shift
             leg.z += local_z_shift
         self.fully_define(self.get_points_from_buffer())
-        self.origin = (self.origin[0] + local_x_shift,
-                       self.origin[1] + local_y_shift,
-                       self.origin[2] + local_z_shift)
+        self.origin = (
+            self.origin[0] + local_x_shift,
+            self.origin[1] + local_y_shift,
+            self.origin[2] + local_z_shift,
+        )
 
-        self.body = [(self.origin[0] - self.body_dim[0] / 2, self.origin[1] - self.body_dim[1] / 2, self.origin[2]),
-                     (self.origin[0] + self.body_dim[0] / 2,
-                      self.origin[1] - self.body_dim[1] / 2, self.origin[2]),
-                     (self.origin[0] + self.body_dim[0] / 2,
-                      self.origin[1] + self.body_dim[1] / 2, self.origin[2]),
-                     (self.origin[0] - self.body_dim[0] / 2,
-                      self.origin[1] + self.body_dim[1] / 2, self.origin[2]),
-                     (self.origin[0] - self.body_dim[0] / 2, self.origin[1] - self.body_dim[1] / 2, self.origin[2])]
+        self.body = [
+            (
+                self.origin[0] - self.body_dim[0] / 2,
+                self.origin[1] - self.body_dim[1] / 2,
+                self.origin[2],
+            ),
+            (
+                self.origin[0] + self.body_dim[0] / 2,
+                self.origin[1] - self.body_dim[1] / 2,
+                self.origin[2],
+            ),
+            (
+                self.origin[0] + self.body_dim[0] / 2,
+                self.origin[1] + self.body_dim[1] / 2,
+                self.origin[2],
+            ),
+            (
+                self.origin[0] - self.body_dim[0] / 2,
+                self.origin[1] + self.body_dim[1] / 2,
+                self.origin[2],
+            ),
+            (
+                self.origin[0] - self.body_dim[0] / 2,
+                self.origin[1] - self.body_dim[1] / 2,
+                self.origin[2],
+            ),
+        ]
         for leg in self.legs:
-            leg.origin = [leg.origin[i] + shift for i,
-                          shift in enumerate(shifts)]
+            leg.origin = [leg.origin[i] + shift for i, shift in enumerate(shifts)]
 
     def shift_body_rotation(self, yaw, pitch, roll):
         try:
@@ -384,11 +489,9 @@ class Quadruped:
         self.fully_define(self.get_points_from_buffer())
 
         for i, vector in enumerate(self.body):
-            self.body[i] = Quadruped.rotate_vector(
-                vector, [0, 0, 1], -self.yaw)
+            self.body[i] = Quadruped.rotate_vector(vector, [0, 0, 1], -self.yaw)
         for i, vector in enumerate(self.body):
-            self.body[i] = Quadruped.rotate_vector(
-                vector, [0, 1, 0], -self.pitch)
+            self.body[i] = Quadruped.rotate_vector(vector, [0, 1, 0], -self.pitch)
         for i, vector in enumerate(self.body):
-            self.body[i] = Quadruped.rotate_vector(
-                vector, [1, 0, 0], -self.roll)
+            self.body[i] = Quadruped.rotate_vector(vector, [1, 0, 0], -self.roll)
+
