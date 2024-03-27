@@ -28,6 +28,11 @@ class Arm:
         endpoint: {(self.x, self.y, self.z)}
         """
 
+class Point:
+    def __init__(self, x:float, y:float, z:float):
+        self.x = x
+        self.y = y
+        self.z = z
 
 class ArmIK:
     def __init__(self, forearm, shoulder, body_dim, hip_offset):
@@ -39,6 +44,9 @@ class ArmIK:
         self.body_dim = body_dim
         self.hip_offset = hip_offset  # z, y
         self.joint_angles = []
+
+    def calc_servo1_angle(self, x, y, z):
+
 
     def local_translation_engine(self, legs_xyz):
         """
@@ -80,11 +88,6 @@ class ArmIK:
         except:
             print("Out of bounds.")
         return self.joint_angles
-
-
-class ArmController:
-    def __init__(self) -> None:
-        pass
 
 
 class Quadruped:
