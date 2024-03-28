@@ -8,26 +8,75 @@ DEBUG = False
 class Arm:
     def __init__(self, origin):
         self.origin = origin
-        self.servo1_rad: float = math.pi / 2  # servo1 (yaw) angle in radians
-        self.servo2_rad: float = math.pi / 2  # servo2 (pitch) angle in radians:
-        self.arm_length: float = 65  # Total length of the arm
-        self.arm_offset: float = 12  # Offset from the center of the robot
-        self.actuator_extension: float = 0  # Actuator extension length
+        self.servo1_angle: float = math.pi / 2  # servo1 (yaw) angle in radians
+        self.servo2_angle: float = math.pi / 2  # servo2 (pitch) angle in radians:
+
+        # Arm dimensions
+        self.base_segment_height: float = 20  # Length of the first vertical segment
+        self.offset: float = 12  # Offset from the center of the robot
+        self.actuator_total_len: float = 65  # Total length of the arm
+        self.actuator_ext_len: float = 0  # Actuator extension length
         # coordinate of arm end effector
-        self.endpoint: Point = Point(self.arm_offset, 0.0, self.arm_length)
+        self.endpoint: Point = Point(
+            self.offset, self.base_segment_height, self.actuator_total_len
+        )
 
     def __str__(self):
         return f"""
         origin: {self.origin}, 
-        yaw angle: {math.degrees(self.servo1_rad)}, 
-        pitch angle: {math.degrees(self.servo2_rad)}, 
-        arm_length: {self.arm_length}, 
-        actuator_ext: {self.actuator_extension}, 
+        yaw angle: {math.degrees(self.servo1_angle)}, 
+        pitch angle: {math.degrees(self.servo2_angle)}, 
+        arm_length: {self.actuator_total_len}, 
+        actuator_ext: {self.actuator_ext_len},
         endpoint: {(self.endpoint.x, self.endpoint.y, self.endpoint.z)}
         """
 
+    @staticmethod
+    def add_vector(base_vector, increment):
+        """
+        Adds the given vectors element-wise in the order: base_vector + increment
+        """
+        assert len(base_vector) == len(increment)
+        return [val + increment[i] for i, val in enumerate(base_vector)]
+
+    @staticmethod
+    def subtract_vector(base_vector, increment):
+        """
+        Subtracts the given vectors element-wise in the order: base_vector - increment
+        """
+        assert len(base_vector) == len(increment)
+        return [val - increment[i] for i, val in enumerate(base_vector)]
+
+    @staticmethod
+    def rotate_vector(vector, axis, theta):
+        """
+        Return the rotation matrix associated with counterclockwise rotation about
+        the given axis by theta radians.
+        """
+        global DEBUG
+        if DEBUG:
+            print(f"vector: {vector}, axis: {axis}, theta: {math.degrees(theta)}")
+        axis = np.asarray(axis)
+        axis = axis / math.sqrt(np.dot(axis, axis))
+        a = math.cos(theta / 2.0)
+        b, c, d = -axis * math.sin(theta / 2.0)
+        aa, bb, cc, dd = a * a, b * b, c * c, d * d
+        bc, ad, ac, ab, bd, cd = b * c, a * d, a * c, a * b, b * d, c * d
+        rotation_matrix = np.array(
+            [
+                [aa + bb - cc - dd, 2 * (bc + ad), 2 * (bd - ac)],
+                [2 * (bc - ad), aa + cc - bb - dd, 2 * (cd + ab)],
+                [2 * (bd + ac), 2 * (cd - ab), aa + dd - bb - cc],
+            ]
+        )
+        return np.dot(rotation_matrix, vector)
+
 
 class Point:
+    """
+    A point in 3D space
+    """
+
     def __init__(self, x: float, y: float, z: float):
         self.x = x
         self.y = y
@@ -35,6 +84,10 @@ class Point:
 
 
 class ArmIK:
+    """
+    Inverse Kinematics for the arm
+    """
+
     @staticmethod
     def calc_servo1_angle(x: float, z: float, offset: float) -> float:
         """
@@ -71,6 +124,27 @@ class ArmIK:
         return math.sqrt(x**2 + y**2 + z**2 - d**2) - min_length
 
 
+class ArmFK:
+    """
+    Forward Kinematics for the arm
+    """
+
+    def update_segment1_vector(self):
+        pass
+
+    def update_segment2_vector(self):
+        pass
+
+    def update_segment3_vector(self):
+        pass
+
+    def draw_arm(self):
+        """
+        Draw the arm
+        """
+        pass
+
+
 class Quadruped:
     def __init__(
         self,
@@ -100,34 +174,6 @@ class Quadruped:
         self.ik = InverseKinematics(
             limb_lengths[1], limb_lengths[0], self.body_dim, self.offsets
         )
-
-        self.body = [
-            (
-                origin[0] - self.body_dim[0] / 2,
-                origin[1] - self.body_dim[1] / 2,
-                origin[2],
-            ),
-            (
-                origin[0] + self.body_dim[0] / 2,
-                origin[1] - self.body_dim[1] / 2,
-                origin[2],
-            ),
-            (
-                origin[0] + self.body_dim[0] / 2,
-                origin[1] + self.body_dim[1] / 2,
-                origin[2],
-            ),
-            (
-                origin[0] - self.body_dim[0] / 2,
-                origin[1] + self.body_dim[1] / 2,
-                origin[2],
-            ),
-            (
-                origin[0] - self.body_dim[0] / 2,
-                origin[1] - self.body_dim[1] / 2,
-                origin[2],
-            ),
-        ]
 
         # back_right_leg, front_right_leg, front_left_leg, back_left_leg
         self.legs = [
@@ -176,12 +222,6 @@ class Quadruped:
             ]
         )
         return np.dot(rotation_matrix, vector)
-
-    def draw_body(self, color="black"):
-        x_data = [vector[0] for vector in self.body]
-        y_data = [vector[1] for vector in self.body]
-        z_data = [vector[2] for vector in self.body]
-        self.ax.plot(x_data, y_data, z_data, color=color)
 
     def draw_legs(self, color="blue"):
         for i, leg in enumerate(self.legs):
