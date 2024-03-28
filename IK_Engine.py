@@ -28,11 +28,13 @@ class Arm:
         endpoint: {(self.x, self.y, self.z)}
         """
 
+
 class Point:
-    def __init__(self, x:float, y:float, z:float):
+    def __init__(self, x: float, y: float, z: float):
         self.x = x
         self.y = y
         self.z = z
+
 
 class ArmIK:
     def __init__(self, forearm, shoulder, body_dim, hip_offset):
@@ -45,49 +47,37 @@ class ArmIK:
         self.hip_offset = hip_offset  # z, y
         self.joint_angles = []
 
-    def calc_servo1_angle(self, x, y, z):
-
-
-    def local_translation_engine(self, legs_xyz):
+    def calc_servo1_angle(self, x: float, z: float, offset: float) -> float:
         """
-        Translation engine for
+        Calculate the servo1 angle (yaw) in radians
+        x: left and right
+        z: depth (forward and backward)
+        offset: offset from the center of the robot
         """
-        try:
-            joint_angles = []
-            for i, (x, y, z) in enumerate(legs_xyz):
-                h1 = math.sqrt(self.hip_offset[0] ** 2 + self.hip_offset[1] ** 2)
-                h2 = math.sqrt(z**2 + y**2)
-                alpha_0 = math.atan(y / z)
-                alpha_1 = math.atan(self.hip_offset[1] / self.hip_offset[0])
-                alpha_2 = math.atan(self.hip_offset[0] / self.hip_offset[1])
-                alpha_3 = math.asin(h1 * math.sin(alpha_2 + math.radians(90)) / h2)
-                alpha_4 = math.radians(180) - (alpha_3 + alpha_2 + math.radians(90))
-                alpha_5 = alpha_1 - alpha_4
-                theta_h = alpha_0 - alpha_5
+        beta = math.atan2(z, x)
+        alpha = math.asin(offset / math.sqrt(x**2 + z**2))
+        return beta + alpha
 
-                r0 = h1 * math.sin(alpha_4) / math.sin(alpha_3)
-                h = math.sqrt(r0**2 + x**2)
-                phi = math.asin(x / h)
-                theta_s = (
-                    math.acos(
-                        (h**2 + self.shoulder**2 - self.wrist**2)
-                        / (2 * h * self.shoulder)
-                    )
-                    - phi
-                )
-                theta_w = math.acos(
-                    (self.wrist**2 + self.shoulder**2 - h**2)
-                    / (2 * self.wrist * self.shoulder)
-                )
+    def calc_servo2_angle(self, x: float, y: float, z: float, d: float) -> float:
+        """
+        Calculate the servo2 angle (pitch) in radians
+        x: left and right
+        y: up and down
+        z: depth (forward and backward)
+        """
+        return math.atan2(y, math.sqrt(x**2 + z**2 - d**2))
 
-                if i < 2:
-                    joint_angles.append((theta_h, theta_s, theta_w))
-                else:
-                    joint_angles.append((-theta_h, theta_s, theta_w))
-            self.joint_angles = joint_angles
-        except:
-            print("Out of bounds.")
-        return self.joint_angles
+    def calc_actuator_extension(
+        self, x: float, y: float, z: float, d: float, min_length: float
+    ) -> float:
+        """
+        Calculate the actuator extension length
+        x: left and right
+        y: up and down
+        z: depth (forward and backward)
+        d: distance from the shoulder to the wrist
+        """
+        return math.sqrt(x**2 + y**2 + z**2 - d**2) - min_length
 
 
 class Quadruped:
@@ -497,4 +487,3 @@ class Quadruped:
             self.body[i] = Quadruped.rotate_vector(vector, [0, 1, 0], -self.pitch)
         for i, vector in enumerate(self.body):
             self.body[i] = Quadruped.rotate_vector(vector, [1, 0, 0], -self.roll)
-
