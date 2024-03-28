@@ -8,10 +8,19 @@ DEBUG = False
 
 # NOTE: In the coordinate system, x is left and right, y is up and down, z is forward and backward (depth)
 
+class Point:
+    """
+    A point in 3D space
+    """
+    def __init__(self, x: float, y: float, z: float):
+        self.x = x
+        self.y = y
+        self.z = z
+
 
 class Arm:
-    def __init__(self, origin: np.ndarray):
-        self.origin: np.ndarray = origin
+    def __init__(self, origin: Point):
+        self.origin = np.array([origin.x, origin.y, origin.z]) 
 
         # Servo angles
         self.servo1_angle: float = math.pi / 2  # servo1 (yaw) angle in radians
@@ -99,18 +108,6 @@ class Arm:
             ]
         )
         return np.dot(rotation_matrix, vector)
-
-
-class Point:
-    """
-    A point in 3D space
-    """
-
-    def __init__(self, x: float, y: float, z: float):
-        self.x = x
-        self.y = y
-        self.z = z
-
 
 class ArmIK:
     """
