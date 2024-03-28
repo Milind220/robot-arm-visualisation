@@ -1,24 +1,38 @@
 import math
-
+from typing import List
 import numpy as np
 
 DEBUG = False
 
+# NOTE: In the coordinate system, x is left and right, y is up and down, z is forward and backward (depth)
+
 
 class Arm:
-    def __init__(self, origin):
-        self.origin = origin
+    def __init__(self, origin: np.ndarray):
+        self.origin: np.ndarray = origin
+
+        # Servo angles
         self.servo1_angle: float = math.pi / 2  # servo1 (yaw) angle in radians
         self.servo2_angle: float = math.pi / 2  # servo2 (pitch) angle in radians:
 
         # Arm dimensions
-        self.base_segment_height: float = 20  # Length of the first vertical segment
-        self.offset: float = 12  # Offset from the center of the robot
-        self.actuator_total_len: float = 65  # Total length of the arm
-        self.actuator_ext_len: float = 0  # Actuator extension length
+        self.base_segment_height: float = 20  # Length of the first vertical segment, cm
+        self.offset: float = 12  # Offset from the center of the robot, cm
+        self.actuator_min_len: float = 65  # minimum extension length of the arm, cm
+        self.actuator_ext_len: float = 0  # Actuator extension length, cm
+        self.actuator_total_len: float = (
+            self.actuator_min_len + self.actuator_ext_len
+        )  # Total actuator length, cm
+
+        # Vectors representing the arm segments
+        self.base_segment: np.ndarray = np.array([0, self.base_segment_height, 0])  # Fixed base segment
+        self.segment1: np.ndarray = np.array([self.offset, 0, 0])  # First segment, the offset
+        self.segment2: np.ndarray = np.array([0, 0, self.actuator_min_len])  # Second segment, the actuator fixed length part
+        self.segment3: np.ndarray = np.array([0, 0, 0])  # Third segment, the actuator extension part
+
         # coordinate of arm end effector
         self.endpoint: Point = Point(
-            self.offset, self.base_segment_height, self.actuator_total_len
+            self.offset, self.base_segment_height, self.actuator_min_len
         )
 
     def __str__(self):
@@ -26,29 +40,13 @@ class Arm:
         origin: {self.origin}, 
         yaw angle: {math.degrees(self.servo1_angle)}, 
         pitch angle: {math.degrees(self.servo2_angle)}, 
-        arm_length: {self.actuator_total_len}, 
+        arm_length: {self.actuator_min_len}, 
         actuator_ext: {self.actuator_ext_len},
         endpoint: {(self.endpoint.x, self.endpoint.y, self.endpoint.z)}
         """
 
     @staticmethod
-    def add_vector(base_vector, increment):
-        """
-        Adds the given vectors element-wise in the order: base_vector + increment
-        """
-        assert len(base_vector) == len(increment)
-        return [val + increment[i] for i, val in enumerate(base_vector)]
-
-    @staticmethod
-    def subtract_vector(base_vector, increment):
-        """
-        Subtracts the given vectors element-wise in the order: base_vector - increment
-        """
-        assert len(base_vector) == len(increment)
-        return [val - increment[i] for i, val in enumerate(base_vector)]
-
-    @staticmethod
-    def rotate_vector(vector, axis, theta):
+    def rotate_vector(vector:np.ndarray, axis:List[int], theta:float) -> np.ndarray:
         """
         Return the rotation matrix associated with counterclockwise rotation about
         the given axis by theta radians.
@@ -129,10 +127,18 @@ class ArmFK:
     Forward Kinematics for the arm
     """
 
-    def update_segment1_vector(self):
-        pass
+    def update_segment1_vector(self, servo1_angle: float, segment1: np.ndarray):
+        """
+        Rotate the segment1 vector based on the servo1 angle.
+        Returns rotated vector.
+        """
+        # Rotate the segment1 vector around the y-axis (vertical) by the servo1 angle
+        return Arm.rotate_vector(segment1, [0, 1, 0], servo1_angle)
 
     def update_segment2_vector(self):
+        """
+        Rotate the segment2 vector based on the
+        """
         pass
 
     def update_segment3_vector(self):
