@@ -46,7 +46,7 @@ class Arm:
         """
 
     @staticmethod
-    def rotate_vector(vector:np.ndarray, axis:List[int], theta:float) -> np.ndarray:
+    def rotate_vector(vector:np.ndarray, axis:np.ndarray, theta:float) -> np.ndarray:
         """
         Return the rotation matrix associated with counterclockwise rotation about
         the given axis by theta radians.
@@ -54,7 +54,6 @@ class Arm:
         global DEBUG
         if DEBUG:
             print(f"vector: {vector}, axis: {axis}, theta: {math.degrees(theta)}")
-        axis = np.asarray(axis)
         axis = axis / math.sqrt(np.dot(axis, axis))
         a = math.cos(theta / 2.0)
         b, c, d = -axis * math.sin(theta / 2.0)
