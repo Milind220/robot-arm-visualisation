@@ -13,10 +13,8 @@ class Arm:
         self.arm_length: float = 65  # Total length of the arm
         self.arm_offset: float = 12  # Offset from the center of the robot
         self.actuator_extension: float = 0  # Actuator extension length
-        # coordinates of arm end effector
-        self.x: float = self.arm_offset
-        self.y: float = 0
-        self.z: float = self.arm_length
+        # coordinate of arm end effector
+        self.endpoint: Point = Point(self.arm_offset, 0.0, self.arm_length)
 
     def __str__(self):
         return f"""
@@ -25,7 +23,7 @@ class Arm:
         pitch angle: {math.degrees(self.servo2_rad)}, 
         arm_length: {self.arm_length}, 
         actuator_ext: {self.actuator_extension}, 
-        endpoint: {(self.x, self.y, self.z)}
+        endpoint: {(self.endpoint.x, self.endpoint.y, self.endpoint.z)}
         """
 
 
