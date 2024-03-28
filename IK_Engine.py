@@ -35,17 +35,8 @@ class Point:
 
 
 class ArmIK:
-    def __init__(self, forearm, shoulder, body_dim, hip_offset):
-        """
-        body_dim: (length, width,thickness) in mm
-        """
-        self.wrist = forearm
-        self.shoulder = shoulder
-        self.body_dim = body_dim
-        self.hip_offset = hip_offset  # z, y
-        self.joint_angles = []
-
-    def calc_servo1_angle(self, x: float, z: float, offset: float) -> float:
+    @staticmethod
+    def calc_servo1_angle(x: float, z: float, offset: float) -> float:
         """
         Calculate the servo1 angle (yaw) in radians
         x: left and right
@@ -56,7 +47,8 @@ class ArmIK:
         alpha = math.asin(offset / math.sqrt(x**2 + z**2))
         return beta + alpha
 
-    def calc_servo2_angle(self, x: float, y: float, z: float, d: float) -> float:
+    @staticmethod
+    def calc_servo2_angle(x: float, y: float, z: float, d: float) -> float:
         """
         Calculate the servo2 angle (pitch) in radians
         x: left and right
@@ -65,8 +57,9 @@ class ArmIK:
         """
         return math.atan2(y, math.sqrt(x**2 + z**2 - d**2))
 
+    @staticmethod
     def calc_actuator_extension(
-        self, x: float, y: float, z: float, d: float, min_length: float
+        x: float, y: float, z: float, d: float, min_length: float
     ) -> float:
         """
         Calculate the actuator extension length
