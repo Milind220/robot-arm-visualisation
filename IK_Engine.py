@@ -293,10 +293,10 @@ class ArmFK:
         print("target point (draw): ", target[0], target[1], target[2])
 
         # Draw the arm
-        ArmFK.plot_segment(ax, origin, endpoint1, "r", 2)
-        ArmFK.plot_segment(ax, origin, endpoint2, "g", 2)
-        ArmFK.plot_segment(ax, endpoint2, endpoint3, "b", 2)
-        ArmFK.plot_segment(ax, endpoint3, target, "k")
+        ArmFK.plot_segment(ax, origin, endpoint1, "r", 4)
+        ArmFK.plot_segment(ax, origin, endpoint2, "g", 4)
+        ArmFK.plot_segment(ax, endpoint2, endpoint3, "b", 4)
+        ArmFK.plot_segment(ax, endpoint3, target, "k", 2)
 
 
 if __name__ == "__main__":
