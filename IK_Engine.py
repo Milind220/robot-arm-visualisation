@@ -16,7 +16,7 @@ class Arm:
         # Arm dimensions
         self.base_segment_height: float = 20  # Length of vertical segment, cm
         self.offset: float = 12  # Offset from the center of the robot, cm
-        self.actuator_min_len: float = 65  # minimum extension length of the arm, cm
+        self.actuator_min_len: float = 50 # minimum extension length of the arm, cm
         self.actuator_ext_len: float = 0  # Actuator extension length, cm
         self._scale_values()  # Scale values based on SCALER
 
@@ -100,7 +100,7 @@ class Arm:
 
         self.segment1 = ArmFK.update_segment1_vector(d_angle1, self.segment1)
         self.segment2 = ArmFK.update_segment2_vector(
-            d_angle1, d_angle2, self.segment2
+            d_angle1, d_angle2, self.segment1,self.segment2
         )
         self.segment3 = ArmFK.update_segment3_vector(
             self.actuator_ext_len,
@@ -213,16 +213,16 @@ class ArmFK:
 
     @staticmethod
     def update_segment2_vector(
-        servo1_angle: float, servo2_angle: float, segment2: np.ndarray
+        servo1_angle: float, servo2_angle: float, segment1: np.ndarray, segment2: np.ndarray
     ) -> np.ndarray:
         """
         Rotate the segment2 vector based on the servo2 angle and servo1 angle.
         """
         # Rotate the segment2 vector around the x-axis (horizontal) by the servo2 angle
-        # The order is important, first rotate around the x-axis, then around the y-axis
-        segment2 = rotate_vector(segment2, np.array([1, 0, 0]), servo2_angle)
-        # Rotate the segment2 vector around the y-axis (vertical) by the servo1 angle
+        # Rotate the segment2 vector around the y-axis (horizontal movement around vertical axis) by the servo1 angle
         segment2 = rotate_vector(segment2, np.array([0, 1, 0]), servo1_angle)
+        # The order is important, first rotate around the x-axis, then around the y-axis
+        segment2 = rotate_vector(segment2, segment1,servo2_angle)
         return segment2
 
     @staticmethod
