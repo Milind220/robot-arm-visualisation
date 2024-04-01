@@ -1,111 +1,110 @@
-import math
-
-import matplotlib.animation as animation
 import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
+from matplotlib.animation import FuncAnimation
 from mpl_toolkits.mplot3d import Axes3D
 from pynput import keyboard
 
-from IK_Engine import Quadruped
-
-# Setting up 3D matplotlib figure
-fig = plt.figure()
-ax = Axes3D(fig)
-# ax.set_aspect("equal")
-
-x = y = z = yaw = pitch = roll = 0
-
-WINDOW_SIZE = 500
-ANIMATE_INTERVAL = 50
-start_height = 170
-ax.set_xlim3d(-WINDOW_SIZE / 2, WINDOW_SIZE / 2)
-ax.set_ylim3d(-WINDOW_SIZE / 2, WINDOW_SIZE / 2)
-ax.set_zlim3d(-start_height, WINDOW_SIZE - start_height)
-
-ax.set_xlabel('x (mm)')
-ax.set_ylabel('y (mm)')
-ax.set_zlabel('z (mm)')
-
-# Setting up Quadruped
-robot = Quadruped(ax=ax, origin=(0, 0, 0), height=start_height)
-
-switch = 'x'
-buffer = 0
-inc = 5
+from IK_Engine import Arm, ArmFK
 
 
-def on_press(key):
-    global switch, buffer, inc, x, y, z, yaw, pitch, roll
-    if key == keyboard.Key.esc:
-        return False  # stop listener
-    try:
-        k = key.char  # single-char keys
-    except:
-        k = key.name  # other keys
-    if k in ['1']:
-        x = y = z = yaw = pitch = roll = 0
-    if k in ['x']:
-        switch = 'x'
-    if k in ['y']:
-        switch = 'y'
-    if k in ['z']:
-        switch = 'z'
-    if k in ['a']:
-        switch = 'a'
-    if k in ['p']:
-        switch = 'p'
-    if k in ['r']:
-        switch = 'r'
-    if k in ['up']:
-        buffer = inc
-    if k in ['down']:
-        buffer = -inc
-    if k in ['up', 'down']:
-        if switch == 'x':
-            x += buffer
-        if switch == 'y':
-            y += buffer
-        if switch == 'z':
-            z += buffer
-        if switch == 'a':
-            yaw += buffer
-        if switch == 'p':
-            pitch += buffer
-        if switch == 'r':
-            roll += buffer
+class RobotArmController:
+    def __init__(self):
+        # Initialize the robot arm's state
+        self.robot = Arm()
+        self.increment = 10  # Increment for movements and rotations
+        print("target point: ", self.robot.target_point[0], self.robot.target_point[1], self.robot.target_point[2]) 
+
+    def move(self, dx=0, dy=0, dz=0):
+        """Moves the arm's target position by the given deltas"""
+        self.robot.target_point[0] += dx
+        self.robot.target_point[1] += dy
+        self.robot.target_point[2] += dz
+        self.update_arm()
+
+    #def rotate(self, dyaw=0, dpitch=0, droll=0):
+    #    """Rotates the arm's target orientation by the given deltas"""
+
+    #def extend_actuator(self, dlength=0):
+    #    """Extends or retracts the arm's actuator by the given delta"""
+
+    def update_arm(self):
+        """Updates the arm's configuration based on current target position"""
+        self.robot.fully_define_position()
+
+    def reset_position(self):
+        """Resets the arm's target position and orientation"""
+        self.robot.reset_position()
 
 
-def setup():
-    ax.clear()
-    # ax.set_aspect("equal")
+class ArmVisualizer:
+    def __init__(self, controller: RobotArmController):
+        # Initialize the visualizer
+        self.controller = controller
+        self.fig: Figure = plt.figure()
+        self.ax: Axes3D = self.fig.add_subplot(111,projection="3d")
+        self.configure_plot()
 
-    ax.set_xlim3d(-WINDOW_SIZE / 2, WINDOW_SIZE / 2)
-    ax.set_ylim3d(-WINDOW_SIZE / 2, WINDOW_SIZE / 2)
-    ax.set_zlim3d(-start_height, WINDOW_SIZE - start_height)
+    def configure_plot(self):
+        WINDOW_SIZE: int = 500 
+        start_height: int = 170
+        self.ax.set_xlim3d(-WINDOW_SIZE / 2, WINDOW_SIZE / 2)
+        self.ax.set_ylim3d(-WINDOW_SIZE / 10, 9*WINDOW_SIZE / 10)
+        self.ax.set_zlim3d(-start_height, WINDOW_SIZE - start_height)
+        self.ax.set_xlabel("x (cm)")
+        self.ax.set_ylabel("z (cm)")
+        self.ax.set_zlabel("y (cm)")
 
-    ax.set_xlabel('x (mm)')
-    ax.set_ylabel('y (mm)')
-    ax.set_zlabel('z (mm)')
+    def update_plot(self):
+        self.ax.clear()
+        self.configure_plot()
+        ArmFK.draw_arm(
+            self.ax,
+            self.controller.robot.origin,
+            self.controller.robot.base_segment,
+            self.controller.robot.segment1,
+            self.controller.robot.segment2,
+            self.controller.robot.target_point
+        )
+   
+    def on_press(self, key):
+        try:
+            if key.char == 'x':
+                self.selected_axis = 'x'
+            elif key.char == 'y':
+                self.selected_axis = 'y'
+            elif key.char == 'z':
+                self.selected_axis = 'z'
+        except AttributeError:
+            if key == keyboard.Key.up:
+                if self.selected_axis == 'x':
+                    self.controller.move(dx=self.controller.increment)
+                elif self.selected_axis == 'y':
+                    self.controller.move(dy=self.controller.increment)
+                elif self.selected_axis == 'z':
+                    self.controller.move(dz=self.controller.increment)
+            elif key == keyboard.Key.down:
+                if self.selected_axis == 'x':
+                    self.controller.move(dx=-self.controller.increment)
+                elif self.selected_axis == 'y':
+                    self.controller.move(dy=-self.controller.increment)
+                elif self.selected_axis == 'z':
+                    self.controller.move(dz=-self.controller.increment)
+
+    def run(self):
+        """Starts the animation loop."""
+        ani = FuncAnimation(self.fig, lambda frame: self.update_plot(), interval=50)
+        plt.show()
 
 
-def animate(i):
-    global x, y, z, yaw, pitch, roll
-    setup()
-    # Going to starting pose
-    robot.start_position()
-    # Shifting robot pose in cartesian system x-y-z (body-relative)
-    robot.shift_body_xyz(x, y, z)
-    # Shifting robot pose in Euler Angles yaw-pitch-roll (body-relative)
-    robot.shift_body_rotation(math.radians(
-        yaw), math.radians(pitch), math.radians(roll))
+def main():
+    controller = RobotArmController()
+    visualizer = ArmVisualizer(controller)
 
-    robot.draw_body()
-    robot.draw_legs()
+    # setup keyboard listener
+    listener = keyboard.Listener(on_press=visualizer.on_press)
+    listener.start()
 
-    # print(i * ANIMATE_INTERVAL / 1000)
+    visualizer.run()
 
-
-listener = keyboard.Listener(on_press=on_press)
-listener.start()  # start to listen on a separate thread
-
-ani = animation.FuncAnimation(fig, animate, interval=ANIMATE_INTERVAL)
-plt.show()
+if __name__ == "__main__":
+    main()
