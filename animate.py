@@ -6,19 +6,20 @@ from pynput import keyboard
 
 from IK_Engine import Arm, ArmFK
 
-
 class RobotArmController:
     def __init__(self):
         # Initialize the robot arm's state
         self.robot = Arm()
         self.increment = 10  # Increment for movements and rotations
-        print("target point: ", self.robot.target_point[0], self.robot.target_point[1], self.robot.target_point[2]) 
 
     def move(self, dx=0, dy=0, dz=0):
         """Moves the arm's target position by the given deltas"""
         self.robot.target_point[0] += dx
         self.robot.target_point[1] += dy
         self.robot.target_point[2] += dz
+        print("+++++++++++++++++++++++++++++++++++")
+        print("Moving to: ", self.robot.target_point[0], self.robot.target_point[1], self.robot.target_point[2])
+        print("+++++++++++++++++++++++++++++++++++")
         self.update_arm()
 
     #def rotate(self, dyaw=0, dpitch=0, droll=0):
@@ -33,8 +34,15 @@ class RobotArmController:
 
     def reset_position(self):
         """Resets the arm's target position and orientation"""
-        self.robot.reset_position()
-
+        # NOTE: A bit hacky, but we're just resetting the target position to the default
+        # TODO: Implement a 'reset_point' attribute in the Arm class
+        self.robot.target_point[0] = self.robot.offset 
+        self.robot.target_point[1] = 0.0 
+        self.robot.target_point[2] = self.robot.actuator_min_len 
+        print("-----------------------------------")
+        print("Resetting to: ", self.robot.target_point[0], self.robot.target_point[1], self.robot.target_point[2])
+        print("-----------------------------------")
+        self.update_arm()
 
 class ArmVisualizer:
     def __init__(self, controller: RobotArmController):
@@ -74,6 +82,8 @@ class ArmVisualizer:
                 self.selected_axis = 'y'
             elif key.char == 'z':
                 self.selected_axis = 'z'
+            elif key.char == 'r':
+                self.controller.reset_position()
         except AttributeError:
             if key == keyboard.Key.up:
                 if self.selected_axis == 'x':

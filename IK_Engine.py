@@ -37,13 +37,11 @@ class Arm:
         self.end_effector_point = (
             self.segment1 + self.segment2 + self.segment3
         )  # End effector point
-        self.reset_point = (
-            self.end_effector_point
-        )  # Reset point for the arm. Used to reset the arm to the initial position. DO NOT CHANGE.
         self.target_point = (
             self.end_effector_point
         )  # Target point for the arm. Used by IK Engine. Starts at the end effector point.
         self.origin = np.array([0, 0, 0])
+        print("INITIALISING ARM")
 
     def __str__(self):
         return f"""
@@ -84,6 +82,7 @@ class Arm:
             self.target_point[2],
             self.offset,
         )
+        # TODO: See if this is even needed
         self.actuator_ext_len = ArmIK.calc_actuator_extension(
             self.target_point[0],
             self.target_point[1],
@@ -125,27 +124,6 @@ class Arm:
                 segment3: {self.segment3}
                 """
             )
-
-    def reset_position(self):
-        # Reset the arm to the initial position
-        self.end_effector_point = self.reset_point
-        # Reset the servo angles using IK Engine
-        self.servo1_angle = ArmIK.calc_servo1_angle(
-            self.end_effector_point[0], self.end_effector_point[2], self.offset
-        )
-        self.servo2_angle = ArmIK.calc_servo2_angle(
-            self.end_effector_point[0],
-            self.end_effector_point[1],
-            self.end_effector_point[2],
-            self.offset,
-        )
-        self.actuator_ext_len = ArmIK.calc_actuator_extension(
-            self.end_effector_point[0],
-            self.end_effector_point[1],
-            self.end_effector_point[2],
-            self.offset,
-            self.actuator_min_len,
-        )
 
 
 def rotate_vector(vector: np.ndarray, axis: np.ndarray, theta: float) -> np.ndarray:
@@ -272,7 +250,6 @@ class ArmFK:
         """
         # NOTE: The y and z axes are swapped in the plot
         ax.plot([start[0], end[0]], [start[2], end[2]], [start[1], end[1]], color=color, linewidth=linewidth)
-        #ax.plot([start[0], end[0]], [start[1], end[1]], [start[2], end[2]], color=color)    # Original. no swap.
 
     @staticmethod
     def draw_arm(
@@ -289,8 +266,8 @@ class ArmFK:
         endpoint1 = origin - v1
         endpoint2 = origin + v2
         endpoint3 = endpoint2 + v3
-        # Print 
-        print("target point (draw): ", target[0], target[1], target[2])
+         
+        #print("target point (draw): ", target[0], target[1], target[2])
 
         # Draw the arm
         ArmFK.plot_segment(ax, origin, endpoint1, "r", 4)
